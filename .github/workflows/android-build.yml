@@ -24,15 +24,44 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      # The AI Studio GitHub export does not include the Gradle wrapper binary
+      # (gradlew script + gradle-wrapper.jar). Generate them in CI to match
+      # the wrapper version pinned in gradle/wrapper/gradle-wrapper.properties.
+      - name: Generate Gradle wrapper (missing from repo)
+        run: |
+          curl -sSfL https://services.gradle.org/distributions/gradle-9.3.1-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-9.3.1/bin/gradle wrapper --gradle-version 9.3.1 --no-daemon
+          chmod +x gradlew
+
+      # The debug build signs with ${rootDir}/debug.keystore, which is also
+      # missing from the export. Recreate the standard Android debug keystore.
+      - name: Generate debug keystore (missing from repo)
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android -keypass android \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      # Ensure the Android SDK platform required by compileSdk 36 is present
+      # on the runner and licenses are accepted.
+      - name: Accept SDK licenses & install platform 36
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" > /dev/null || true
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: amoled-notes-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+          
