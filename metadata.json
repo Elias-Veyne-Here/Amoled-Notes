@@ -1,0 +1,6 @@
+{
+  "name": "AMOLED Notes",
+  "description": "A minimalist, premium notepad for Android with unlimited text capacity, rich text formatting, and true-black AMOLED styling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
